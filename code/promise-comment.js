@@ -3,7 +3,7 @@
  */
 
 'use strict';
-var immediate = require('immediate');
+var immediate = _ =>setTimeout(_, 0)
 
 /* istanbul ignore next */
 function INTERNAL() {} //一个空函数，用于判断是否是then中的promise  
@@ -37,6 +37,7 @@ function Promise(resolver) {
   }
 }
 
+//finally, 不会返回promise，相当于队列中最后一个then
 Promise.prototype.finally = function (callback) {
   if (typeof callback !== 'function') {
     return this;
@@ -61,6 +62,7 @@ Promise.prototype.finally = function (callback) {
 Promise.prototype.catch = function (onRejected) {
   return this.then(null, onRejected);
 };
+//then是同步的，因此我们需要先建立promise，然后再将回调放到队列中
 Promise.prototype.then = function (onFulfilled, onRejected) {
   if (typeof onFulfilled !== 'function' && this.state === FULFILLED ||
     typeof onRejected !== 'function' && this.state === REJECTED) {
@@ -73,6 +75,7 @@ Promise.prototype.then = function (onFulfilled, onRejected) {
       this.handled = null;
     }
   }
+  //判断一下当前上下文的状态，如果非pending态(如Promise.resolve),此时直接异步调用(使用unwrap)resolver参数， 否则加入上下文的队列中
   if (this.state !== PENDING) {
     var resolver = this.state === FULFILLED ? onFulfilled : onRejected;
     unwrap(promise, resolver, this.outcome);
@@ -105,9 +108,9 @@ QueueItem.prototype.callRejected = function (value) {
 QueueItem.prototype.otherCallRejected = function (value) {
   unwrap(this.promise, this.onRejected, value);
 };
-
+//这里这个unwrap，用于将队列放到异步中
 function unwrap(promise, func, value) {
-  console.log('unwrap', value)
+  // console.log('unwrap', value)
   immediate(function () {
     var returnValue;
     try {
@@ -122,27 +125,28 @@ function unwrap(promise, func, value) {
     }
   });
 }
-//重头戏，用于运行回调或刷新队列
+//重头戏，用于运行回调或刷新队列， 通过判断传入的value是否是promise来判断是否直接刷新队列
 handlers.resolve = function (self, value) {
-  var result = tryCatch(getThen, value); 
-  if (result.status === 'error') {
+  var result = tryCatch(getThen, value); //使用getThen去解析value， 即 geThen(value)
+  if (result.status === 'error') { //判断是否报错，报错则reject
     return handlers.reject(self, result.value);
   }
-  var thenable = result.value;
+  var thenable = result.value; //getThen中返回的只有 promise 和 空两种可能，如果是空则把队列执行完 即顺序是 先链式 后 同步的调用 then
 
-  if (thenable) {
+  if (thenable) { //有值，代表需要继续链式调用
     safelyResolveThenable(self, thenable);
-  } else {
+  } else { //否则刷新剩余的队列
     self.state = FULFILLED;
-    self.outcome = value;
+    self.outcome = value; //将结果放到outcome中，使then的回调中可以获取到结果作为形参
     var i = -1;
     var len = self.queue.length;
     while (++i < len) {
-      self.queue[i].callFulfilled(value);
+      self.queue[i].callFulfilled(value); //调用queueItem对象的方法， 本质上就是调用 resolve方法
     }
   }
   return self;
 };
+//失败回调
 handlers.reject = function (self, error) {
   self.state = REJECTED;
   self.outcome = error;
@@ -158,7 +162,7 @@ handlers.reject = function (self, error) {
   }
   var i = -1;
   var len = self.queue.length;
-  while (++i < len) {
+  while (++i < len) { //刷新catch队列
     self.queue[i].callRejected(error);
   }
   return self;
@@ -166,7 +170,7 @@ handlers.reject = function (self, error) {
 
 function getThen(obj) {
   // Make sure we only access the accessor once as required by the spec
-  var then = obj && obj.then;
+  var then = obj && obj.then; //如果value是一个 promise 返回， 否则返回 void 0
   if (obj && (typeof obj === 'object' || typeof obj === 'function') && typeof then === 'function') {
     return function appyThen() {
       then.apply(obj, arguments);
@@ -190,8 +194,8 @@ function safelyResolveThenable(self, thenable) {
     if (called) {
       return;
     }
-    called = true;
     handlers.resolve(self, value);
+    called = true;
   }
 
   function tryToUnwrap() {
