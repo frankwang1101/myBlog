@@ -14,4 +14,4 @@
 ---
 ### 文
 ---
-1. 实现一个Promise-polyfill
+1. Promise库lie的注释解读

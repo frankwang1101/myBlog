@@ -37,19 +37,20 @@ function Promise(resolver) {
   }
 }
 
-//finally, 不会返回promise，相当于队列中最后一个then
+//finally, 跟done不同，会返回promise，因此扔需要使其同时捕获 resolve和 reject，
 Promise.prototype.finally = function (callback) {
   if (typeof callback !== 'function') {
     return this;
   }
   var p = this.constructor;
+  
   return this.then(resolve, reject);
 
   function resolve(value) {
     function yes () {
       return value;
     }
-    return p.resolve(callback()).then(yes);
+    return p.resolve(callback()).then(yes);//首先调用callback, 然后在then中传递结果函数, 与then(a, b)不同，这个继续then 可以获取 val 或者 reason
   }
   function reject(reason) {
     function no () {
@@ -75,10 +76,10 @@ Promise.prototype.then = function (onFulfilled, onRejected) {
       this.handled = null;
     }
   }
-  //判断一下当前上下文的状态，如果非pending态(如Promise.resolve),此时直接异步调用(使用unwrap)resolver参数， 否则加入上下文的队列中
+  //判断一下当前上下文的状态，如果非pending态(如Promise.resolve, resolver内同步resolve等),此时直接异步调用(使用unwrap)resolver参数， 否则加入上下文的队列中
   if (this.state !== PENDING) {
     var resolver = this.state === FULFILLED ? onFulfilled : onRejected;
-    unwrap(promise, resolver, this.outcome);
+    unwrap(promise, resolver, this.outcome); //此处是 resolve Promise.resolve异步 的原因， then中的 resolver是以unwrap的形式异步调用的
   } else {
     this.queue.push(new QueueItem(promise, onFulfilled, onRejected));
   }
