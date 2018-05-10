@@ -6,6 +6,10 @@
  * 以上是我设计的promise
  * 目前发现的问题有 1. 不知道如何判断是否是同步 的resolve 2. queue的触发问题 3.res 的传递问题
  */
+
+ let INTERNAL = function(){}
+ let handles = {}
+
 //此处传入resolve, reject
 function unWrap(resolver, promise) {
   const onSuccess = function (v) { //成功回调
@@ -33,13 +37,70 @@ function tryCatch(resolver, promise, onSuccess, onError) {
 
 function FakePromise(resolver) {
   this.status = 'pending' //状态分成 pending fulfilled rejected
-  this.res = null
+  this.res = void 0
   this.queue = []
-  if (resolver) {
+  if (resolver !== INTERNAL) {
     //接下来要运行resolver
-    unWrap(resolver, this); //运行resolver, 传递回调
+    runThenable(this, resolver) //运行resolver, 传递回调
   }
 }
+/**
+ * 1. 调用resolver
+ * 2. 传递resolve, reject
+ */
+function runThenable(p, r){
+  const onSuccess = (v) => {
+    handles.resolve(p, v)
+  }
+  const onError = (e) => {
+    handles.reject(p, e)
+  }
+  let res = tryCatch(r(onSuccess, onError))
+  if(res.status === 'error'){
+    onError(res.val)
+  }
+}
+/**
+ * 1. 捕获错误
+ * 2. 封装返回值
+ */
+function tryCatch(func, val){
+  let res = {
+    status: 'success'
+  }
+  try{
+    res.val = func(val) 
+  }catch(e){
+    res.val = e
+    res.status = 'error'
+  }
+  return res
+}
+
+handles.resolve = function(promise, val){
+  var res = tryCatch(getThen, val) //如果传入的是promise结构，则需要运行
+  if(res.status === 'error'){
+    return handles.reject(promise, res.val)
+  }
+  if(res.val){
+    runThenable(promise, res.val)
+  }else{
+    promise.status = 'fulfilled'
+    promise.res = val
+    promise.queue.forEach(q => q.resolve(val))
+  }
+}
+
+function getThen(val){
+  var then = val && val.then
+  if(val && (typeof val === 'object' || typeof val === 'function') && typeof then === 'function'){
+    return (...rest) => {
+      then.apply(val, rest)
+    }
+  }
+}
+
+
 //此处是将回调存到上下文的队列中，上下文resolve后调用
 FakePromise.prototype.then = function (resolver) {
   var p = new this.constructor() //返回一个新的promise， 因为promise状态不可逆
