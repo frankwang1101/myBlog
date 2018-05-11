@@ -111,7 +111,7 @@ QueueItem.prototype.otherCallRejected = function (value) {
 };
 //这里这个unwrap，用于将队列放到异步中
 function unwrap(promise, func, value) {
-  // console.log('unwrap', value)
+  console.log('unwrap', func)
   immediate(function () {
     var returnValue;
     try {
