@@ -10,31 +10,6 @@
  let INTERNAL = function(){}
  let handles = {}
 
-//此处传入resolve, reject
-function unWrap(resolver, promise) {
-  const onSuccess = function (v) { //成功回调
-    setTimeout(_ => {
-      promise.status = 'fulfilled'
-      promise.resolve(v)
-    }, 0)
-  }
-  const onError = function (e) { // 失败回调
-    promise.status = 'rejected'
-    promise.resolve(e)
-  }
-  promise.res = tryCatch(resolver, promise, onSuccess, onError); //用于捕获错误
-}
-//通过此处触发catch
-function tryCatch(resolver, promise, onSuccess, onError) {
-  let res = null
-  try {
-    res = resolver(onSuccess, onError)
-  } catch (e) {
-    onError(e)
-  }
-  return res
-}
-
 function FakePromise(resolver) {
   this.status = 'pending' //状态分成 pending fulfilled rejected
   this.res = void 0
@@ -82,6 +57,7 @@ handles.resolve = function(promise, val){
   if(res.status === 'error'){
     return handles.reject(promise, res.val)
   }
+  //如果是一个promise，则也要把这个promise执行，由于使用的上下文是本实例的上下文，所以在走完构造函数内方法后会刷新队列
   if(res.val){
     runThenable(promise, res.val)
   }else{
@@ -91,6 +67,10 @@ handles.resolve = function(promise, val){
   }
 }
 
+/**
+ * 判断传入的值是否是一个promise，如then中返回一个promise这种情况
+ * @param {从resolve传入的值} val 
+ */
 function getThen(val){
   var then = val && val.then
   if(val && (typeof val === 'object' || typeof val === 'function') && typeof then === 'function'){
