@@ -2,7 +2,7 @@
 
 最近公司h5需要实现一个打字效果，想起来在css secret中看到过相应内容，于是复习了一下，写了一个小demo来记录使用过程
 
-动画如下
+动画如下    
 ![type_loop](https://github.com/frankwang1101/myBlog/blob/master/code/typed_loop.gif)
 
 ### 原理
