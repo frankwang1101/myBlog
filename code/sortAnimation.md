@@ -30,4 +30,4 @@ const start = _ => {
 start()
 ```
 
-具体代码路径在此: [sortAnimation.html](https://github.com/frankwang1101/myBlog/blob/master/code/sortAnimation.html)
+具体代码路径在此: [sortAnimation.html](https://github.com/frankwang1101/myBlog/blob/master/code/sortAnimate.html)
