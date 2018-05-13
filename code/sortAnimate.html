@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>sortAnimation</title>
+</head>
+<style>
+  .panel {
+    width: 600px;
+    border: 1px solid;
+    height: 400px;
+    padding: 20px;
+    position: relative;
+  }
+  .col {
+    width: 40px;
+    position: absolute;
+    left: 20px;
+    bottom: 20px;
+    height: 200px;
+    background: #58a;
+    transition: all 0.6s ease-in-out;
+  }
+  .panel:after {
+    content: attr(val);
+    display: block;
+    position: absolute;
+    bottom: -20px;
+    height: 20px;
+    width: 100%;
+    text-align: center;
+  }
+</style>
+
+<body>
+
+</body>
+
+</html>
+<script>
+  class SortAnimation {
+    constructor(selector, width = 600, height = 400, gutter = 10) {
+      this.panel = {
+        width,
+        height
+      }
+      this.gutter = gutter
+      this.arr = []
+      this.p = document.querySelector(selector)
+    }
+    getRandomArr(num) {
+      let arr = []
+      while (arr.length < num) {
+        let n = Math.ceil(Math.random() * num)
+        if (!~arr.indexOf(n)) {
+          arr.push(n)
+        }
+      }
+      return arr
+    }
+    swap(left, right) {
+      //交换数据组中的值，同时将轨迹(即index)加入队列
+      [left.num, right.num] = [right.num, left.num]
+      return [left.index, right.index]
+    }
+
+    sort(sortFunc) {
+      sortFunc(this.arr, this.swap)
+    }
+    runAnimation(queue) {
+      const start = _ => {
+        if (queue.length) {
+          let t = queue.shift();
+          let left = this.arr.find(v => v.index === t[0]);
+          let right = this.arr.find(v => v.index === t[1]);
+          //交换transform 和 index
+          let tempT = left.dom.style.transform
+          left.dom.style.transform = right.dom.style.transform
+          right.dom.style.transform = tempT
+          let tempI = left.index
+          left.index = right.index
+          right.index = tempI
+          //600ms后继续触发
+          setTimeout(_ => {
+            start()
+          }, 600)
+        }
+      }
+      start()
+    }
+    createCol(height, width, i, gutter, num) {
+      //创建柱子的dom
+      const col = document.createElement('div')
+      col.className = 'col'
+      col.style.setProperty('position', 'absolute')
+      col.style.height = height + 'px'
+      col.style.width = width + 'px';
+      col.style.setProperty('transform', `translate3d(${(gutter + width ) * i}px,0,0)`)
+      col.setAttribute('val', num)
+      return col
+    }
+    render(arr) {
+      this.arr = []
+      let max = Math.max.apply(null, arr)
+      let gutter = this.gutter
+      let width = Math.floor((this.panel.width - gutter * (arr.length - 1)) / arr.length)
+      let ratio = ((this.panel.height - gutter * 2 - 100) / max).toFixed(2)
+      let dataList = this.arr
+      const frag = document.createDocumentFragment()
+      let self = this
+      //创建数据数组
+      arr.forEach((num, index) => {
+        let h = num * ratio + 100
+        let w = width
+        const dom = self.createCol(h, w, index, gutter, num)
+        dataList.push({
+          num,
+          dom,
+          index
+        })
+        frag.appendChild(dom)
+      })
+      this.p.appendChild(frag)
+      return dataList
+    }
+  }
+
+
+
+  const get = _ => document.querySelector(_)
+  const p = get('.panel')
+  const run = document.getElementById('run');
+  const gen = document.getElementById('gen');
+
+  const sa = new SortAnimation('.panel', 600, 400, 10)
+  let list = []
+  gen.onclick = _ => {
+    p.innerHTML = ''
+    list = sa.render(sa.getRandomArr(10));
+  }
+  run.onclick = _ => {
+    let queue = []
+    sa.sort(function (arr, swap) {
+
+      const part = (arr, left, right) => {
+        let i = left
+        let j = right
+        let pivot = arr[Math.floor((left + right) / 2)].num
+        while (i <= j) {
+          while (arr[i].num < pivot) {
+            i++
+          }
+          while (arr[j].num > pivot) {
+            j--
+          }
+          if (i <= j) {
+            queue.push(swap(arr[i], arr[j]))
+            i++
+            j--
+          }
+        }
+        return i
+      }
+
+      const quick = (arr, left, right) => {
+        if (arr.length > 1) {
+          let i = part(arr, left, right)
+          if (i - 1 > left) {
+            quick(arr, left, i - 1)
+          }
+          if (i < right) {
+            quick(arr, i, right)
+          }
+        }
+        return arr
+      }
+
+      quick(arr, 0, arr.length - 1)
+
+
+
+
+
+
+
+
+
+      // for(let i = 0; i<arr.length - 1;i++){
+      //   for(let j = i + 1;j < arr.length; j++){
+      //     if(arr[i].num > arr[j].num){
+      //       queue.push(swap(arr[i], arr[j]))
+      //     }
+      //   }
+      // }
+    })
+    sa.runAnimation(queue)
+  }
+</script>
